@@ -1,0 +1,26 @@
+name: Morning Notice
+
+on:
+  schedule:
+    # 毎日20:00(UTC 11:00) と 毎朝6:00(UTC 21:00) に動かす設定です
+    - cron: '0 11,21 * * *'
+  workflow_dispatch: # 手動でテスト起動するためのスイッチ
+
+jobs:
+  send-notice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send LINE message
+        run: |
+          curl -X POST https://api.line.me/v2/bot/message/push \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
+          -d '{
+                "to": "${{ secrets.LINE_GROUP_PARENTS }}",
+                "messages": [
+                  {
+                    "type": "text",
+                    "text": "🌞【タスク確認】今日のタスクが作成・更新されました！\n修正・確認はこちらからお願いします👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
+                  }
+                ]
+              }'
