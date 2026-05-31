@@ -5,14 +5,16 @@ import datetime
 import json
 import requests
 
-# 1. 画面の基本設定とデザイン
+# 1. 画面の基本設定とデザイン（スマホでも見やすいように最適化）
 st.set_page_config(page_title="キッズToDo", page_icon="🎈", layout="centered")
 st.markdown("""
 <style>
-.block-container { padding-top: 2rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+.block-container { padding-top: 1.5rem !important; padding-left: 0.8rem !important; padding-right: 0.8rem !important; }
 h1 { font-size: 20px !important; padding-bottom: 5px !important; }
-h3 { font-size: 18px !important; color: #444444 !important; padding-top: 10px !important; margin-bottom: 0px !important; }
-div[data-testid="stCheckbox"] p { font-size: 15px !important; line-height: 1.6 !important; white-space: normal !important; }
+h3 { font-size: 16px !important; color: #444444 !important; padding-top: 10px !important; margin-bottom: 0px !important; }
+div[data-testid="stCheckbox"] p { font-size: 14px !important; line-height: 1.5 !important; }
+/* スマホの横揺れ防止 */
+.stDataEditor { width: 100% !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -27,11 +29,11 @@ st.title(f"🎈 {today_str}({today_weekday_short}) のToDo")
 query_params = st.query_params
 user_mode = query_params.get("name", "all") 
 
-# Streamlitの「秘密の金庫」からパスワードと鍵を読み込む
+# Streamlitの安全金庫からパスワードを読み込み
 creds_dict = json.loads(st.secrets["gcp_credentials"])
 gc = gspread.service_account_from_dict(creds_dict)
 
-# 🌟 LINE送信用の関数（宛先をボタンごとに切り替えられるように進化！）
+# LINE送信用の関数
 def send_line_message(text, target_id):
     if "line_channel_access_token" not in st.secrets:
         st.error("LINEのトークンが設定されていません。")
@@ -102,35 +104,26 @@ else:
     else:
         st.write("👨‍💻 **パパママ用 管理・編集画面**")
         
-        # 👑 追加機能①：その場で直接スプレッドシートを編集できる「データエディタ」
-        st.caption("👇 表の中をダブルクリックすると直接書き換え・追加ができます")
-        edited_df = st.data_editor(df, num_rows="dynamic", key="data_editor", height=300)
+        # 👑 直接編集エディタ
+        st.caption("👇 タスクの修正・追加・削除ができます（スマホでもタップで編集可）")
+        edited_df = st.data_editor(df, num_rows="dynamic", key="data_editor", height=250)
         
-        if st.button("🔄 編集内容をスプレッドシートに保存する", type="secondary"):
+        if st.button("🔄 編集内容をスプレッドシートに保存する", type="secondary", use_container_width=True):
             daily_ws.clear()
             daily_ws.update([edited_df.columns.values.tolist()] + edited_df.fillna("").values.tolist())
-            st.success("スプレッドシートに保存しました！")
+            st.success("変更をスプレッドシートに保存しました！")
             st.rerun()
             
         st.divider()
         
-        # 👑 追加機能②：LINE送信ボタン（宛先グループの自動切り替え！）
-        st.write("📢 **LINE通知の送信**")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("① 🌞 朝イチ確認通知をパパママに送る", use_container_width=True):
-                msg = f"【朝イチ確認】今日のタスクが作成されました！修正・確認はこちらからお願いします👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
-                # パパママグループID（line_group_parents）を指定して送信
-                if send_line_message(msg, st.secrets["line_group_parents"]):
-                    st.success("パパママ宛の確認LINEを送信しました！")
-                    
-        with col2:
-            if st.button("② 🎈 子供たちにToDo通知を送る", type="primary", use_container_width=True):
-                msg = f"⏰ 今日のToDoリスト🎈\n\n👧 栞帆ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=shiho\n\n👧 結楓ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=yuka"
-                # 家族全員グループID（line_group_family）を指定して送信
-                if send_line_message(msg, st.secrets["line_group_family"]):
-                    st.success("家族LINE宛にToDoリストを送信しました！")
+        # 👑 LINE送信ボタン（1つだけに集約！）
+        st.write("📢 **子供たちへの配信**")
+        if st.button("🚀 栞帆・結楓にToDo通知を送る", type="primary", use_container_width=True):
+            msg = f"⏰ 今日のToDoリスト🎈\n\n👧 栞帆ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=shiho\n\n👧 結楓ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=yuka"
+            
+            # 4人全員のグループID（line_group_family）へ直接送信！
+            if send_line_message(msg, st.secrets["line_group_family"]):
+                st.success("家族全員のグループLINE宛にToDoリストを送信しました！🚀")
 
         st.divider()
         
