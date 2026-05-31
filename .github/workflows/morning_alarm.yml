@@ -2,15 +2,17 @@ name: Morning Notice
 
 on:
   schedule:
-    # 毎日20:00(UTC 11:00) と 毎朝6:00(UTC 21:00) に動かす設定です
+    # 毎日20:00(UTC 11:00)と、毎朝6:00(UTC 21:00) に稼働
     - cron: '0 11,21 * * *'
-  workflow_dispatch: # 手動でテスト起動するためのスイッチ
+  workflow_dispatch:
 
 jobs:
   send-notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Send LINE message
+      - name: Send LINE to Parents (20:00)
+        # 20時の自動実行、または手動テスト(workflow_dispatch)の時に動く
+        if: github.event.schedule == '0 11 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -X POST https://api.line.me/v2/bot/message/push \
           -H 'Content-Type: application/json' \
@@ -20,7 +22,24 @@ jobs:
                 "messages": [
                   {
                     "type": "text",
-                    "text": "🌞【タスク確認】今日のタスクが作成・更新されました！\n修正・確認はこちらからお願いします👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
+                    "text": "🌙【夜の仕込み】明日の基本タスクが準備できました！\n今夜のうちに修正・確認する方はこちらから確認・編集できます👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
+                  }
+                ]
+              }'
+
+      - name: Send LINE to Parents (06:00)
+        # 朝6時の自動実行の時だけ動く
+        if: github.event.schedule == '0 21 * * *'
+        run: |
+          curl -X POST https://api.line.me/v2/bot/message/push \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
+          -d '{
+                "to": "${{ secrets.LINE_GROUP_PARENTS }}",
+                "messages": [
+                  {
+                    "type": "text",
+                    "text": "🌞【朝の最終確認】今日のToDoを確認しましょう！\n昨日の積み残し分も自動合体しています。チェックして子供たちへ配信してください👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
                   }
                 ]
               }'
