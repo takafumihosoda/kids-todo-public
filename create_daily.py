@@ -1,62 +1,56 @@
 import gspread
 import pandas as pd
 import datetime
+import os
+import json
 
-print("🔄 今日のタスクと「やり残し」を準備しています...")
+def main():
+    creds_json = os.environ.get("GCP_CREDENTIALS")
+    if not creds_json:
+        print("Error: GCP_CREDENTIALS not found.")
+        return
+        
+    creds_dict = json.loads(creds_json)
+    gc = gspread.service_account_from_dict(creds_dict)
+    
+    spreadsheet = gc.open('勉強ToDoデータベース')
+    master_ws = spreadsheet.worksheet('マスター')
+    prepaid_ws = spreadsheet.worksheet('翌日仕込み')
+    
+    jst = datetime.timezone(datetime.timedelta(hours=9))
+    now = datetime.datetime.now(jst)
+    tomorrow = now + datetime.timedelta(days=1)
+    
+    weekday_map = ["月", "火", "水", "木", "金", "土", "日"]
+    tomorrow_weekday = weekday_map[tomorrow.weekday()]
+    print(f"明日の日付: {tomorrow.month}月{tomorrow.day}日 ({tomorrow_weekday}曜日)")
+    
+    master_records = master_ws.get_all_records()
+    df_master = pd.DataFrame(master_records)
+    
+    if df_master.empty:
+        print("マスターシートが空です。")
+        return
+        
+    # 明日の曜日に該当するタスクを抽出
+    df_tomorrow_tasks = df_master[df_master['曜日'].str.contains(tomorrow_weekday, na=False)].copy()
+    
+    # 必要な列（I列まで）を全て維持したまま、ステータス関連だけリセット
+    df_save = df_tomorrow_tasks.copy()
+    if 'ステータス' in df_save.columns:
+        df_save['ステータス'] = '未完了'
+        
+    # G列（7番目の列：「ステータス_最終...」）を空にする
+    if len(df_save.columns) >= 7:
+        g_col_name = df_save.columns[6]
+        df_save[g_col_name] = ''
+        
+    # J列用に「前回確定日」を追加
+    df_save['前回確定日'] = ''
+    
+    prepaid_ws.clear()
+    prepaid_ws.update([df_save.columns.values.tolist()] + df_save.fillna("").values.tolist())
+    print("翌日仕込みシートへの明日のベースタスク書き込みが完了しました！")
 
-# 1. 接続設定
-gc = gspread.service_account(filename='credentials.json')
-spreadsheet = gc.open('勉強ToDoデータベース')
-master_ws = spreadsheet.worksheet('マスター')
-daily_ws = spreadsheet.worksheet('デイリー')
-
-jst = datetime.timezone(datetime.timedelta(hours=9))
-now = datetime.datetime.now(jst)
-
-# 🌟 現実のパソコンの時計を見る設定に戻しました
-today_date_str = now.strftime("%Y-%m-%d")
-weekday_list = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
-today_weekday = weekday_list[now.weekday()]
-
-# ==========================================
-# STEP 1: 今のデイリーシートの状態を賢く取得する
-# ==========================================
-daily_records = daily_ws.get_all_records()
-if daily_records:
-    df_daily = pd.DataFrame(daily_records)
-    keep_mask = (df_daily["ステータス"] != "完了") | (df_daily["ステータス_最終更新日時"].astype(str).str.startswith(today_date_str))
-    df_daily_kept = df_daily[keep_mask].copy()
-else:
-    df_daily_kept = pd.DataFrame()
-
-# ==========================================
-# STEP 2: マスターから「今日のタスク」を取得する
-# ==========================================
-master_records = master_ws.get_all_records()
-df_master = pd.DataFrame(master_records)
-df_today = df_master[df_master["曜日"].isin([today_weekday, "毎日"])].copy()
-
-df_today["ステータス"] = "未完了"
-df_today["ステータス_最終更新日時"] = ""
-
-# ==========================================
-# STEP 3: 新しいタスクと、今の状態を上書き合体！
-# ==========================================
-if not df_daily_kept.empty:
-    df_combined = pd.concat([df_today, df_daily_kept], ignore_index=True)
-    df_combined = df_combined.drop_duplicates(subset=["対象者", "科目", "タスク名"], keep="last")
-else:
-    df_combined = df_today
-
-df_combined = df_combined.fillna("")
-
-# ==========================================
-# STEP 4: デイリーシートに書き込む
-# ==========================================
-daily_ws.clear()
-if not df_combined.empty:
-    data_to_write = [df_combined.columns.tolist()] + df_combined.values.tolist()
-    daily_ws.update(values=data_to_write, range_name="A1")
-    print(f"🎉 デイリーシートの更新が完了しました！ (合計: {len(df_combined)}件のタスク)")
-else:
-    print("今日のタスクはありません。")
+if __name__ == '__main__':
+    main()
