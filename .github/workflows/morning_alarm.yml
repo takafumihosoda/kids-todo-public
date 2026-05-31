@@ -2,8 +2,10 @@ name: Morning Notice
 
 on:
   schedule:
-    # 毎日20:00(UTC 11:00)と、毎朝6:00(UTC 21:00) に稼働
-    - cron: '0 11,21 * * *'
+    # 🌙 毎日20:00(UTC 11:00)
+    - cron: '0 11 * * *'
+    # 🌞 毎朝6:00(UTC 21:00)
+    - cron: '0 21 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,8 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send LINE to Parents (20:00)
-        # 20時の自動実行、または手動テスト(workflow_dispatch)の時に動く
-        if: github.event.schedule == '0 11 * * *' || github.event_name == 'workflow_dispatch'
+        if: github.event.schedule == '0 11 * * *'
         run: |
           curl -X POST https://api.line.me/v2/bot/message/push \
           -H 'Content-Type: application/json' \
@@ -28,8 +29,8 @@ jobs:
               }'
 
       - name: Send LINE to Parents (06:00)
-        # 朝6時の自動実行の時だけ動く
-        if: github.event.schedule == '0 21 * * *'
+        # 朝6時の自動実行、または手動テスト(workflow_dispatch)の時に動く
+        if: github.event.schedule == '0 21 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -X POST https://api.line.me/v2/bot/message/push \
           -H 'Content-Type: application/json' \
