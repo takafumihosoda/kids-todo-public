@@ -27,18 +27,15 @@ st.title(f"🎈 {today_str}({today_weekday_short}) のToDo")
 query_params = st.query_params
 user_mode = query_params.get("name", "all") 
 
-# Streamlitの「秘密の金庫」から各種パスワード・鍵を読み込む
+# Streamlitの「秘密の金庫」からパスワードと鍵を読み込む
 creds_dict = json.loads(st.secrets["gcp_credentials"])
 gc = gspread.service_account_from_dict(creds_dict)
 
-# LINE送信用の関数
-def send_line_message(text):
+# 🌟 LINE送信用の関数（宛先をボタンごとに切り替えられるように進化！）
+def send_line_message(text, target_id):
     if "line_channel_access_token" not in st.secrets:
         st.error("LINEのトークンが設定されていません。")
         return False
-    
-    # 🌟最初は仮でパパ宛、あとでグループID（C...）に書き換えます
-    target_id = st.secrets.get("line_target_id", "ここにあなたのユーザーIDを入れます")
     
     url = "https://api.line.me/v2/bot/message/push"
     headers = {
@@ -106,11 +103,10 @@ else:
         st.write("👨‍💻 **パパママ用 管理・編集画面**")
         
         # 👑 追加機能①：その場で直接スプレッドシートを編集できる「データエディタ」
-        st.caption("👇 表の中をダブルクリックすると直接書き換え・追加ができます（自動保存）")
+        st.caption("👇 表の中をダブルクリックすると直接書き換え・追加ができます")
         edited_df = st.data_editor(df, num_rows="dynamic", key="data_editor", height=300)
         
         if st.button("🔄 編集内容をスプレッドシートに保存する", type="secondary"):
-            # スプレッドシートを一旦クリアして全書き換え
             daily_ws.clear()
             daily_ws.update([edited_df.columns.values.tolist()] + edited_df.fillna("").values.tolist())
             st.success("スプレッドシートに保存しました！")
@@ -118,27 +114,25 @@ else:
             
         st.divider()
         
-        # 👑 追加機能②：LINE送信ボタン（承認ワークフロー）
+        # 👑 追加機能②：LINE送信ボタン（宛先グループの自動切り替え！）
         st.write("📢 **LINE通知の送信**")
         col1, col2 = st.columns(2)
+        
         with col1:
             if st.button("① 🌞 朝イチ確認通知をパパママに送る", use_container_width=True):
                 msg = f"【朝イチ確認】今日のタスクが作成されました！修正・確認はこちらからお願いします👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
-                if send_line_message(msg):
+                # パパママグループID（line_group_parents）を指定して送信
+                if send_line_message(msg, st.secrets["line_group_parents"]):
                     st.success("パパママ宛の確認LINEを送信しました！")
+                    
         with col2:
             if st.button("② 🎈 子供たちにToDo通知を送る", type="primary", use_container_width=True):
                 msg = f"⏰ 今日のToDoリスト🎈\n\n👧 栞帆ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=shiho\n\n👧 結楓ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=yuka"
-                if send_line_message(msg):
+                # 家族全員グループID（line_group_family）を指定して送信
+                if send_line_message(msg, st.secrets["line_group_family"]):
                     st.success("家族LINE宛にToDoリストを送信しました！")
 
         st.divider()
-        
-        # 👑 グループIDを調べるための裏口（Webhookログ代わり）
-        st.write("🔑 **LINEグループID調査エリア**")
-        st.caption("グループ通知にするための『グループID』を見つける場所です。")
-        # LINEからのデータ受け取り用（あとでWebhook連携します）
-        # ※今はまだ使えませんが、枠だけ作っておきます。
         
         tab_shiho, tab_yuka = st.tabs(["👧 栞帆のタスク", "👧 結楓のタスク"])
         with tab_shiho:
