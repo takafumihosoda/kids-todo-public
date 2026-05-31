@@ -1,0 +1,28 @@
+name: Create Daily Task
+
+on:
+  schedule:
+    # 毎日19:50 (日本時間) = 10:50 (UTC)
+    - cron: '50 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install gspread pandas
+
+      - name: Run create_daily.py
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: python create_daily.py
