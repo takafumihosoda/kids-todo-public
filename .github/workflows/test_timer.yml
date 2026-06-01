@@ -1,0 +1,14 @@
+name: Simple Timer Test
+
+on:
+  schedule:
+    # 10分ごとに実行する設定（世界共通の書き方です）
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hello Timer
+        run: echo "タイマーが無事に生きています！！現在時刻のテストです。"
