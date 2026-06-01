@@ -1,8 +1,6 @@
 name: Morning Notice (06:00)
 
 on:
-  schedule:
-    # - cron: '0 21 * * *'
   workflow_dispatch:
 
 jobs:
