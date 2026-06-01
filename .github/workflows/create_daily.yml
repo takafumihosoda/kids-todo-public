@@ -1,9 +1,6 @@
 name: Create Daily Task
 
 on:
-  schedule:
-    # 毎日19:50 (日本時間) = 10:50 (UTC)
-    # - cron: '50 10 * * *'
   workflow_dispatch:
 
 jobs:
