@@ -1,10 +1,7 @@
-name: Morning Notice
+name: Morning Notice (06:00)
 
 on:
   schedule:
-    # 🌙 毎日20:00(UTC 11:00)
-    - cron: '0 11 * * *'
-    # 🌞 毎朝6:00(UTC 21:00)
     - cron: '0 21 * * *'
   workflow_dispatch:
 
@@ -12,25 +9,7 @@ jobs:
   send-notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Send LINE to Parents (20:00)
-        if: github.event.schedule == '0 11 * * *'
-        run: |
-          curl -X POST https://api.line.me/v2/bot/message/push \
-          -H 'Content-Type: application/json' \
-          -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
-          -d '{
-                "to": "${{ secrets.LINE_GROUP_PARENTS }}",
-                "messages": [
-                  {
-                    "type": "text",
-                    "text": "🌙【夜の仕込み】明日の基本タスクが準備できました！\n今夜のうちに修正・確認する方はこちらから確認・編集できます👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
-                  }
-                ]
-              }'
-
-      - name: Send LINE to Parents (06:00)
-        # 朝6時の自動実行、または手動テスト(workflow_dispatch)の時に動く
-        if: github.event.schedule == '0 21 * * *' || github.event_name == 'workflow_dispatch'
+      - name: Send LINE
         run: |
           curl -X POST https://api.line.me/v2/bot/message/push \
           -H 'Content-Type: application/json' \
