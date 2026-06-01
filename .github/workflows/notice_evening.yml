@@ -1,7 +1,6 @@
-name: Evening Notice (20:00)
+name: Evening Notice
 
-on:
-  workflow_dispatch:
+on: [workflow_dispatch]
 
 jobs:
   send-notice:
