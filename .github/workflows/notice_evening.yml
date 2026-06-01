@@ -1,0 +1,25 @@
+name: Evening Notice (20:00)
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-notice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send LINE
+        run: |
+          curl -X POST https://api.line.me/v2/bot/message/push \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
+          -d '{
+                "to": "${{ secrets.LINE_GROUP_PARENTS }}",
+                "messages": [
+                  {
+                    "type": "text",
+                    "text": "🌙【夜の仕込み】明日の基本タスクが準備できました！\n今夜のうちに修正・確認する方はこちらから確認・編集できます👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
+                  }
+                ]
+              }'
