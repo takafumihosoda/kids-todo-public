@@ -2,7 +2,7 @@ name: Evening Notice (20:00)
 
 on:
   schedule:
-    - cron: '0 11 * * *'
+    # - cron: '0 11 * * *'
   workflow_dispatch:
 
 jobs:
