@@ -20,13 +20,19 @@ jst = datetime.timezone(datetime.timedelta(hours=9))
 now = datetime.datetime.now(jst)
 today_str_check = f"{now.month}月{now.day}日"
 
-if now.hour >= 20:
+# 【修正①】URLパラメーターの読み取りを一番上に持ってくる
+query_params = st.query_params
+user_mode = query_params.get("name", "all") 
+
+# 【修正②】「20時以降」かつ「親が見ている時（user_mode == "all"）」だけ夜モードにする
+if now.hour >= 20 and user_mode == "all":
     target_date = now + datetime.timedelta(days=1)
     mode_text = "🌙 明日のベース仕込みモード（夜20時〜24時）"
     is_night_mode = True
 else:
     target_date = now
-    mode_text = "🌞 当日の最終確認・配信モード"
+    # 子供の時はヘッダーをシンプルにする
+    mode_text = "🌞 当日の最終確認・配信モード" if user_mode == "all" else "🏃‍♀️ 今日も一日がんばろう！"
     is_night_mode = False
 
 weekday_list = ["日", "月", "火", "水", "木", "金", "土"]
