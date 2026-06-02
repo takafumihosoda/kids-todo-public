@@ -20,18 +20,17 @@ jst = datetime.timezone(datetime.timedelta(hours=9))
 now = datetime.datetime.now(jst)
 today_str_check = f"{now.month}月{now.day}日"
 
-# 【修正①】URLパラメーターの読み取りを一番上に持ってくる
+# URLから誰が開いているかを判定
 query_params = st.query_params
 user_mode = query_params.get("name", "all") 
 
-# 【修正②】「20時以降」かつ「親が見ている時（user_mode == "all"）」だけ夜モードにする
+# 「20時以降」かつ「親が見ている時」だけ夜モードにする
 if now.hour >= 20 and user_mode == "all":
     target_date = now + datetime.timedelta(days=1)
     mode_text = "🌙 明日のベース仕込みモード（夜20時〜24時）"
     is_night_mode = True
 else:
     target_date = now
-    # 子供の時はヘッダーをシンプルにする
     mode_text = "🌞 当日の最終確認・配信モード" if user_mode == "all" else "🏃‍♀️ 今日も一日がんばろう！"
     is_night_mode = False
 
@@ -41,9 +40,6 @@ date_str = f"{target_date.month}月{target_date.day}日"
 
 st.title(f"🎈 {date_str}({target_weekday_short}) のToDo")
 st.caption(f"現在の状態：{mode_text}")
-
-query_params = st.query_params
-user_mode = query_params.get("name", "all") 
 
 creds_dict = json.loads(st.secrets["gcp_credentials"])
 gc = gspread.service_account_from_dict(creds_dict)
@@ -102,25 +98,29 @@ def show_tasks(target_name, current_df):
     else:
         st.info("🎉 今日のタスクはありません！")
 
+# ==========================================
+# データの読み込み処理（ここをより強固にしました）
+# ==========================================
 prepaid_records = prepaid_ws.get_all_records()
 df_prepaid_raw = pd.DataFrame(prepaid_records)
 last_confirmed_date = str(df_prepaid_raw.iloc[0]["前回確定日"]) if not df_prepaid_raw.empty and "前回確定日" in df_prepaid_raw.columns else "なし"
 
+# ★鉄のルール：子供たちの画面（および親画面のプレビュー）は、常に絶対にデイリーシートを見る
+df_children_df = pd.DataFrame(daily_ws.get_all_records()) 
+
 if is_night_mode:
-    # 🌙 夜モード：「前回確定日」の列だけ隠して表示（A〜I列が残る）
+    # 🌙 親の夜モード：「前回確定日」を隠して翌日仕込みシートを表示
     df_display = df_prepaid_raw.drop(columns=["前回確定日"], errors="ignore") if not df_prepaid_raw.empty else pd.DataFrame()
-    df_children_df = pd.DataFrame(daily_ws.get_all_records()) 
 else:
-    # 🌞 朝・昼モード
+    # 🌞 親の朝モード
     if last_confirmed_date == today_str_check:
-        df_display = pd.DataFrame(daily_ws.get_all_records())
-        df_children_df = df_display.copy()
+        df_display = df_children_df.copy()
     else:
-        df_daily = pd.DataFrame(daily_ws.get_all_records())
+        # 朝の未確定時のみ、デイリーの未完了＋翌日仕込みを合体させる
+        df_daily = df_children_df.copy()
         
         if not df_daily.empty and "ステータス" in df_daily.columns:
             df_leftover = df_daily[df_daily["ステータス"] == "未完了"].copy()
-            # G列（ステータス最終）をクリア
             g_col_name = df_leftover.columns[6] if len(df_leftover.columns) >= 7 else None
             if g_col_name:
                 df_leftover[g_col_name] = ""
@@ -135,8 +135,10 @@ else:
                 df_base[g_col_name] = ""
             
         df_display = pd.concat([df_leftover, df_base], ignore_index=True)
-        df_children_df = df_display.copy()
 
+# ==========================================
+# 画面の表示
+# ==========================================
 if user_mode == "shiho":
     st.subheader("👧 栞帆ちゃんの専用ページ")
     show_tasks("栞帆", df_children_df)
