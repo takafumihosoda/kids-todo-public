@@ -17,19 +17,26 @@ def main():
     master_ws = spreadsheet.worksheet('マスター')
     prepaid_ws = spreadsheet.worksheet('翌日仕込み')
     
-    # 🌟【追加】シートをリセットする前に「前回確定日」の記憶を救出する
-    last_confirmed = ""
-    try:
-        existing_records = prepaid_ws.get_all_records()
-        if len(existing_records) > 0 and "前回確定日" in existing_records[0]:
-            last_confirmed = str(existing_records[0]["前回確定日"])
-    except Exception as e:
-        print("前回確定日の取得をスキップしました:", e)
-    
     jst = datetime.timezone(datetime.timedelta(hours=9))
     now = datetime.datetime.now(jst)
+    today_str = f"{now.month}月{now.day}日"
     tomorrow = now + datetime.timedelta(days=1)
     
+    # 🌟 J2セル（前回確定日）を直接読み取る
+    last_confirmed = ""
+    try:
+        val = prepaid_ws.acell('J2').value
+        if val:
+            last_confirmed = str(val)
+    except Exception as e:
+        print("前回確定日の取得をスキップ:", e)
+
+    # 🌟 現在の「翌日仕込み」シートのデータを取得しておく（未配信タスクの救出用）
+    existing_records = prepaid_ws.get_all_records()
+    df_existing = pd.DataFrame(existing_records)
+    if not df_existing.empty and '前回確定日' in df_existing.columns:
+        df_existing = df_existing.drop(columns=['前回確定日'])
+        
     weekday_map = ["月", "火", "水", "木", "金", "土", "日"]
     tomorrow_weekday = weekday_map[tomorrow.weekday()]
     print(f"明日の日付: {tomorrow.month}月{tomorrow.day}日 ({tomorrow_weekday}曜日)")
@@ -44,22 +51,40 @@ def main():
     # 明日の曜日に該当するタスクを抽出
     df_tomorrow_tasks = df_master[df_master['曜日'].str.contains(tomorrow_weekday, na=False)].copy()
     
-    # 必要な列を維持したままステータスをリセット
-    df_save = df_tomorrow_tasks.copy()
-    if 'ステータス' in df_save.columns:
-        df_save['ステータス'] = '未完了'
+    if 'ステータス' in df_tomorrow_tasks.columns:
+        df_tomorrow_tasks['ステータス'] = '未完了'
+    if len(df_tomorrow_tasks.columns) >= 7:
+        g_col_name = df_tomorrow_tasks.columns[6]
+        df_tomorrow_tasks[g_col_name] = ''
         
-    # G列（ステータス_最終更新）を空にする
-    if len(df_save.columns) >= 7:
-        g_col_name = df_save.columns[6]
-        df_save[g_col_name] = ''
-        
-    # 🌟【修正】空っぽにするのではなく、さっき救出した記憶を引き継ぐ！
-    df_save['前回確定日'] = last_confirmed
-    
+    # 🌟【最重要ロジック】パパが今日確定ボタンを押したかチェック
+    if last_confirmed == today_str:
+        # 今日すでに配信済みなら、安心して明日のタスクで上書き
+        df_save = df_tomorrow_tasks
+        print("今日の配信は完了しています。明日のタスクで上書きします。")
+    else:
+        # 今日配信していない（スキップした）なら、既存のタスクに明日のタスクを「合体」させる！
+        print(f"今日の配信が未完了です！（前回確定日: {last_confirmed} / 今日: {today_str}）")
+        print("未配信のタスクを残したまま、明日のタスクを追加します。")
+        if not df_existing.empty:
+            df_save = pd.concat([df_existing, df_tomorrow_tasks], ignore_index=True)
+        else:
+            df_save = df_tomorrow_tasks
+            
+    # シートを一度まっさらにする
     prepaid_ws.clear()
-    prepaid_ws.update([df_save.columns.values.tolist()] + df_save.fillna("").values.tolist())
-    print("翌日仕込みシートへの明日のベースタスク書き込みが完了しました！")
+    
+    # 合体したタスクを書き込む
+    if df_save.empty:
+         prepaid_ws.update([df_master.columns.values.tolist()])
+    else:
+         prepaid_ws.update([df_save.columns.values.tolist()] + df_save.fillna("").values.tolist())
+         
+    # J1とJ2セルに記憶を書き戻す
+    prepaid_ws.update_cell(1, 10, "前回確定日")
+    prepaid_ws.update_cell(2, 10, last_confirmed)
+    
+    print(f"翌日仕込みシートへの書き込み完了！ (記憶: {last_confirmed})")
 
 if __name__ == '__main__':
     main()
