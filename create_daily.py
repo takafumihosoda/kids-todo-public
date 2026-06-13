@@ -17,6 +17,15 @@ def main():
     master_ws = spreadsheet.worksheet('マスター')
     prepaid_ws = spreadsheet.worksheet('翌日仕込み')
     
+    # 🌟【追加】シートをリセットする前に「前回確定日」の記憶を救出する
+    last_confirmed = ""
+    try:
+        existing_records = prepaid_ws.get_all_records()
+        if len(existing_records) > 0 and "前回確定日" in existing_records[0]:
+            last_confirmed = str(existing_records[0]["前回確定日"])
+    except Exception as e:
+        print("前回確定日の取得をスキップしました:", e)
+    
     jst = datetime.timezone(datetime.timedelta(hours=9))
     now = datetime.datetime.now(jst)
     tomorrow = now + datetime.timedelta(days=1)
@@ -35,18 +44,18 @@ def main():
     # 明日の曜日に該当するタスクを抽出
     df_tomorrow_tasks = df_master[df_master['曜日'].str.contains(tomorrow_weekday, na=False)].copy()
     
-    # 必要な列（I列まで）を全て維持したまま、ステータス関連だけリセット
+    # 必要な列を維持したままステータスをリセット
     df_save = df_tomorrow_tasks.copy()
     if 'ステータス' in df_save.columns:
         df_save['ステータス'] = '未完了'
         
-    # G列（7番目の列：「ステータス_最終...」）を空にする
+    # G列（ステータス_最終更新）を空にする
     if len(df_save.columns) >= 7:
         g_col_name = df_save.columns[6]
         df_save[g_col_name] = ''
         
-    # J列用に「前回確定日」を追加
-    df_save['前回確定日'] = ''
+    # 🌟【修正】空っぽにするのではなく、さっき救出した記憶を引き継ぐ！
+    df_save['前回確定日'] = last_confirmed
     
     prepaid_ws.clear()
     prepaid_ws.update([df_save.columns.values.tolist()] + df_save.fillna("").values.tolist())
