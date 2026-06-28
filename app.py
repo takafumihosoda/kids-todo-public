@@ -49,7 +49,7 @@ prepaid_ws = spreadsheet.worksheet('翌日仕込み')
 
 def send_line_message(text, target_id):
     if "line_channel_access_token" not in st.secrets:
-        return False
+        return "エラー：StreamlitのSecretsにLINEのトークンが設定されていません。"
     url = "https://api.line.me/v2/bot/message/push"
     headers = {
         "Content-Type": "application/json",
@@ -60,7 +60,10 @@ def send_line_message(text, target_id):
         "messages": [{"type": "text", "text": text}]
     }
     response = requests.post(url, headers=headers, json=payload)
-    return response.status_code == 200
+    if response.status_code == 200:
+        return "success"
+    else:
+        return f"LINE送信エラー ({response.status_code}): {response.text}"
 
 def update_status(row_index, current_status):
     sheet_row = row_index + 2
@@ -188,8 +191,11 @@ else:
             st.error("先に上の『確定してスプレッドシートに保存する』ボタンを押してデータを確定させてください。")
         else:
             msg = f"⏰ 今日のToDoリストが届いたよ🎈\n\n👧 栞帆ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=shiho\n\n👧 結楓ちゃんはこちら👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/?name=yuka"
-            if send_line_message(msg, st.secrets["line_group_family"]):
+            result = send_line_message(msg, st.secrets["line_group_family"])
+            if result == "success":
                 st.success("家族全員のグループLINE宛にToDoリストを送信しました！🚀")
+            else:
+                st.error(result)
 
     st.divider()
     
