@@ -1,22 +1,11 @@
 name: Evening Notice
 
 on: [workflow_dispatch]
+# ※もしパパさんの元のファイルに schedule（時間指定）の行があった場合は、それも残しておいてください
 
 jobs:
   send-notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Send LINE
-        run: |
-          curl -X POST https://api.line.me/v2/bot/message/push \
-          -H 'Content-Type: application/json' \
-          -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
-          -d '{
-                "to": "${{ secrets.LINE_GROUP_PARENTS }}",
-                "messages": [
-                  {
-                    "type": "text",
-                    "text": "🌙【夜の仕込み】明日の基本タスクが準備できました！\n今夜のうちに修正・確認する方はこちらから確認・編集できます👇\nhttps://kids-todo-public-jbseharpyqrnsqpdwfneg7.streamlit.app/"
-                  }
-                ]
-              }'
+      - name: Send LINE (Stopped)
+        run: echo "上限対策のため、20時のLINE自動配信をストップしています。"
